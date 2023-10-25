@@ -95,4 +95,27 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-cache-${{ hashFiles('**/Cargo.lock') }}
       - shell: bash
-        run: cargo test --release
+        run: cargo test --release --bin safenode-manager
+
+  integration-tests:
+    name: integration tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, elevated: sudo env PATH="$PATH" }
+          - { os: macos-latest, elevated: sudo }
+          - { os: windows-latest }
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - shell: bash
+        run: |
+          ${{ matrix.elevated }} rustup default stable
+          ${{ matrix.elevated }} cargo test --release --test e2e -- --nocapture
