@@ -5,6 +5,7 @@ on: pull_request
 env:
   RUST_BACKTRACE: 1
   RUSTFLAGS: "-D warnings"
+  WINSW_URL: https://github.com/winsw/winsw/releases/download/v3.0.0-alpha.11/WinSW-x64.exe
 
 jobs:
   build:
@@ -58,7 +59,8 @@ jobs:
         with:
           toolchain: nightly
           override: true
-
+      - name: install rustfmt for nightly toolchain
+        run: rustup component add rustfmt --toolchain nightly-x86_64-unknown-linux-gnu
       - name: Run cargo-udeps
         uses: aig787/cargo-udeps-action@v1
         with:
@@ -116,6 +118,20 @@ jobs:
           override: true
 
       - shell: bash
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
         run: |
           ${{ matrix.elevated }} rustup default stable
           ${{ matrix.elevated }} cargo test --release --test e2e -- --nocapture
+
+      # A simple test seemed to confirm that the Powershell step runs as admin by default.
+      - name: run integration test in powershell
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          curl -L -o WinSW.exe $env:WINSW_URL
+
+          New-Item -ItemType Directory -Force -Path "$env:GITHUB_WORKSPACE\bin"
+          Move-Item -Path WinSW.exe -Destination "$env:GITHUB_WORKSPACE\bin"
+          $env:PATH += ";$env:GITHUB_WORKSPACE\bin"
+
+          cargo test --release --test e2e -- --nocapture
