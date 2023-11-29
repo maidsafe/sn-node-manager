@@ -50,6 +50,13 @@ jobs:
 
       - name: clippy checks
         run: cargo clippy --all-targets --all-features -- -Dwarnings
+
+      - shell: bash
+        run: cargo install ripgrep
+      - uses: maidsafe/verify-licensing-info@main
+        name: verify licensing
+        with:
+          company-name: MaidSafe
   cargo-udeps:
     name: unused dependency check
     runs-on: ubuntu-latest
