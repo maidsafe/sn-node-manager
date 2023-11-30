@@ -16,6 +16,7 @@ As with other Safe-related components, Safenode Manager will shortly be availabl
   - `--count`: Number of service instances to add. Optional. Default: 1.
   - `--data-dir-path`: Path for the data directory. Optional, with platform-specific defaults.
   - `--log-dir-path`: Path for the log directory. Optional, with platform-specific defaults.
+  - `--peer`: Provide the peer(s) for the node to connect to. Optional.
   - `--user`: User account under which the service should run. Optional. Default: `safe`.
   - `--version`: Version of `safenode` to add. Optional. Default: the latest version.
 - Usage: `safenode-manager install [OPTIONS]`
