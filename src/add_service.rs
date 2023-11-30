@@ -6,15 +6,16 @@
 // KIND, either express or implied. Please review the Licences for the specific language governing
 // permissions and limitations relating to use of the SAFE Network Software.
 
-use crate::node::{InstalledNode, NodeRegistry, NodeStatus};
+use crate::node::{Node, NodeRegistry, NodeStatus};
 use crate::service::{ServiceConfig, ServiceControl};
 use color_eyre::Result;
+use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use sn_releases::{get_running_platform, ArchiveType, ReleaseType, SafeReleaseRepositoryInterface};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-pub struct InstallOptions {
+pub struct AddServiceOptions {
     pub safenode_dir_path: PathBuf,
     pub service_data_dir_path: PathBuf,
     pub service_log_dir_path: PathBuf,
@@ -32,8 +33,8 @@ pub struct InstallOptions {
 ///
 /// For the directory paths used in the install options, they should be created before this
 /// function is called, as they may require root or administrative access to write to.
-pub async fn install(
-    install_options: InstallOptions,
+pub async fn add(
+    install_options: AddServiceOptions,
     node_registry: &mut NodeRegistry,
     service_control: &dyn ServiceControl,
     release_repo: Box<dyn SafeReleaseRepositoryInterface>,
@@ -74,8 +75,8 @@ pub async fn install(
     let safenode_path =
         release_repo.extract_release_archive(&archive_path, &install_options.safenode_dir_path)?;
 
-    let mut installed_service_data = vec![];
-    let current_node_count = node_registry.installed_nodes.len() as u16;
+    let mut added_service_data = vec![];
+    let current_node_count = node_registry.nodes.len() as u16;
     let target_node_count = current_node_count + install_options.count.unwrap_or(1);
     let mut node_number = current_node_count + 1;
     while node_number <= target_node_count {
@@ -99,7 +100,7 @@ pub async fn install(
             data_dir_path: service_data_dir_path.clone(),
         })?;
 
-        installed_service_data.push((
+        added_service_data.push((
             service_name.clone(),
             service_data_dir_path.to_string_lossy().into_owned(),
             service_log_dir_path.to_string_lossy().into_owned(),
@@ -107,14 +108,14 @@ pub async fn install(
             rpc_port,
         ));
 
-        node_registry.installed_nodes.push(InstalledNode {
+        node_registry.nodes.push(Node {
             service_name,
             user: install_options.user.clone(),
             number: node_number,
             port: node_port,
             rpc_port,
             version: version.clone(),
-            status: NodeStatus::Installed,
+            status: NodeStatus::Added,
             pid: None,
             peer_id: None,
             log_dir_path: service_log_dir_path.clone(),
@@ -124,9 +125,9 @@ pub async fn install(
         node_number += 1;
     }
 
-    println!("Services Installed:");
-    for install in installed_service_data.iter() {
-        println!("  ✓ {}", install.0);
+    println!("Services Added:");
+    for install in added_service_data.iter() {
+        println!(" {} {}", "✓".green(), install.0);
         println!("    - Data path: {}", install.1);
         println!("    - Log path: {}", install.2);
         println!("    - Service port: {}", install.3);
@@ -183,13 +184,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn install_first_node_should_use_latest_version_and_install_one_service() -> Result<()> {
+    async fn add_first_node_should_use_latest_version_and_add_one_service() -> Result<()> {
         let mut mock_service_control = MockServiceControl::new();
         let mut mock_release_repo = MockSafeReleaseRepository::new();
 
-        let mut node_registry = NodeRegistry {
-            installed_nodes: vec![],
-        };
+        let mut node_registry = NodeRegistry { nodes: vec![] };
         let latest_version = "0.96.4";
         let temp_dir = assert_fs::TempDir::new()?;
         let node_data_dir = temp_dir.child("data");
@@ -265,8 +264,8 @@ mod tests {
             .returning(|_| Ok(()))
             .in_sequence(&mut seq);
 
-        install(
-            InstallOptions {
+        add(
+            AddServiceOptions {
                 safenode_dir_path: temp_dir.to_path_buf(),
                 service_data_dir_path: node_data_dir.to_path_buf(),
                 service_log_dir_path: node_logs_dir.to_path_buf(),
@@ -280,38 +279,32 @@ mod tests {
         )
         .await?;
 
-        assert_eq!(node_registry.installed_nodes.len(), 1);
-        assert_eq!(node_registry.installed_nodes[0].version, latest_version);
-        assert_eq!(node_registry.installed_nodes[0].service_name, "safenode1");
-        assert_eq!(node_registry.installed_nodes[0].user, "safe");
-        assert_eq!(node_registry.installed_nodes[0].number, 1);
-        assert_eq!(node_registry.installed_nodes[0].port, 8080);
-        assert_eq!(node_registry.installed_nodes[0].rpc_port, 8081);
+        assert_eq!(node_registry.nodes.len(), 1);
+        assert_eq!(node_registry.nodes[0].version, latest_version);
+        assert_eq!(node_registry.nodes[0].service_name, "safenode1");
+        assert_eq!(node_registry.nodes[0].user, "safe");
+        assert_eq!(node_registry.nodes[0].number, 1);
+        assert_eq!(node_registry.nodes[0].port, 8080);
+        assert_eq!(node_registry.nodes[0].rpc_port, 8081);
         assert_eq!(
-            node_registry.installed_nodes[0].log_dir_path,
+            node_registry.nodes[0].log_dir_path,
             node_logs_dir.to_path_buf().join("safenode1")
         );
         assert_eq!(
-            node_registry.installed_nodes[0].data_dir_path,
+            node_registry.nodes[0].data_dir_path,
             node_data_dir.to_path_buf().join("safenode1")
         );
-        assert_matches!(
-            node_registry.installed_nodes[0].status,
-            NodeStatus::Installed
-        );
+        assert_matches!(node_registry.nodes[0].status, NodeStatus::Added);
 
         Ok(())
     }
 
     #[tokio::test]
-    async fn install_first_node_should_use_latest_version_and_install_three_services() -> Result<()>
-    {
+    async fn add_first_node_should_use_latest_version_and_add_three_services() -> Result<()> {
         let mut mock_service_control = MockServiceControl::new();
         let mut mock_release_repo = MockSafeReleaseRepository::new();
 
-        let mut node_registry = NodeRegistry {
-            installed_nodes: vec![],
-        };
+        let mut node_registry = NodeRegistry { nodes: vec![] };
 
         let latest_version = "0.96.4";
         let temp_dir = assert_fs::TempDir::new()?;
@@ -443,8 +436,8 @@ mod tests {
             .returning(|_| Ok(()))
             .in_sequence(&mut seq);
 
-        install(
-            InstallOptions {
+        add(
+            AddServiceOptions {
                 safenode_dir_path: temp_dir.to_path_buf(),
                 service_data_dir_path: node_data_dir.to_path_buf(),
                 service_log_dir_path: node_logs_dir.to_path_buf(),
@@ -458,74 +451,62 @@ mod tests {
         )
         .await?;
 
-        assert_eq!(node_registry.installed_nodes.len(), 3);
-        assert_eq!(node_registry.installed_nodes[0].version, latest_version);
-        assert_eq!(node_registry.installed_nodes[0].service_name, "safenode1");
-        assert_eq!(node_registry.installed_nodes[0].user, "safe");
-        assert_eq!(node_registry.installed_nodes[0].number, 1);
-        assert_eq!(node_registry.installed_nodes[0].port, 8080);
-        assert_eq!(node_registry.installed_nodes[0].rpc_port, 8081);
+        assert_eq!(node_registry.nodes.len(), 3);
+        assert_eq!(node_registry.nodes[0].version, latest_version);
+        assert_eq!(node_registry.nodes[0].service_name, "safenode1");
+        assert_eq!(node_registry.nodes[0].user, "safe");
+        assert_eq!(node_registry.nodes[0].number, 1);
+        assert_eq!(node_registry.nodes[0].port, 8080);
+        assert_eq!(node_registry.nodes[0].rpc_port, 8081);
         assert_eq!(
-            node_registry.installed_nodes[0].log_dir_path,
+            node_registry.nodes[0].log_dir_path,
             node_logs_dir.to_path_buf().join("safenode1")
         );
         assert_eq!(
-            node_registry.installed_nodes[0].data_dir_path,
+            node_registry.nodes[0].data_dir_path,
             node_data_dir.to_path_buf().join("safenode1")
         );
-        assert_matches!(
-            node_registry.installed_nodes[0].status,
-            NodeStatus::Installed
-        );
-        assert_eq!(node_registry.installed_nodes[1].version, latest_version);
-        assert_eq!(node_registry.installed_nodes[1].service_name, "safenode2");
-        assert_eq!(node_registry.installed_nodes[1].user, "safe");
-        assert_eq!(node_registry.installed_nodes[1].number, 2);
-        assert_eq!(node_registry.installed_nodes[1].port, 8082);
-        assert_eq!(node_registry.installed_nodes[1].rpc_port, 8083);
+        assert_matches!(node_registry.nodes[0].status, NodeStatus::Added);
+        assert_eq!(node_registry.nodes[1].version, latest_version);
+        assert_eq!(node_registry.nodes[1].service_name, "safenode2");
+        assert_eq!(node_registry.nodes[1].user, "safe");
+        assert_eq!(node_registry.nodes[1].number, 2);
+        assert_eq!(node_registry.nodes[1].port, 8082);
+        assert_eq!(node_registry.nodes[1].rpc_port, 8083);
         assert_eq!(
-            node_registry.installed_nodes[1].log_dir_path,
+            node_registry.nodes[1].log_dir_path,
             node_logs_dir.to_path_buf().join("safenode2")
         );
         assert_eq!(
-            node_registry.installed_nodes[1].data_dir_path,
+            node_registry.nodes[1].data_dir_path,
             node_data_dir.to_path_buf().join("safenode2")
         );
-        assert_matches!(
-            node_registry.installed_nodes[1].status,
-            NodeStatus::Installed
-        );
-        assert_eq!(node_registry.installed_nodes[2].version, latest_version);
-        assert_eq!(node_registry.installed_nodes[2].service_name, "safenode3");
-        assert_eq!(node_registry.installed_nodes[2].user, "safe");
-        assert_eq!(node_registry.installed_nodes[2].number, 3);
-        assert_eq!(node_registry.installed_nodes[2].port, 8084);
-        assert_eq!(node_registry.installed_nodes[2].rpc_port, 8085);
+        assert_matches!(node_registry.nodes[1].status, NodeStatus::Added);
+        assert_eq!(node_registry.nodes[2].version, latest_version);
+        assert_eq!(node_registry.nodes[2].service_name, "safenode3");
+        assert_eq!(node_registry.nodes[2].user, "safe");
+        assert_eq!(node_registry.nodes[2].number, 3);
+        assert_eq!(node_registry.nodes[2].port, 8084);
+        assert_eq!(node_registry.nodes[2].rpc_port, 8085);
         assert_eq!(
-            node_registry.installed_nodes[2].log_dir_path,
+            node_registry.nodes[2].log_dir_path,
             node_logs_dir.to_path_buf().join("safenode3")
         );
         assert_eq!(
-            node_registry.installed_nodes[2].data_dir_path,
+            node_registry.nodes[2].data_dir_path,
             node_data_dir.to_path_buf().join("safenode3")
         );
-        assert_matches!(
-            node_registry.installed_nodes[2].status,
-            NodeStatus::Installed
-        );
+        assert_matches!(node_registry.nodes[2].status, NodeStatus::Added);
 
         Ok(())
     }
 
     #[tokio::test]
-    async fn install_first_node_should_use_specific_version_and_install_one_service() -> Result<()>
-    {
+    async fn add_first_node_should_use_specific_version_and_add_one_service() -> Result<()> {
         let mut mock_service_control = MockServiceControl::new();
         let mut mock_release_repo = MockSafeReleaseRepository::new();
 
-        let mut node_registry = NodeRegistry {
-            installed_nodes: vec![],
-        };
+        let mut node_registry = NodeRegistry { nodes: vec![] };
 
         let specific_version = "0.95.0";
         let temp_dir = assert_fs::TempDir::new()?;
@@ -596,8 +577,8 @@ mod tests {
             .returning(|_| Ok(()))
             .in_sequence(&mut seq);
 
-        install(
-            InstallOptions {
+        add(
+            AddServiceOptions {
                 safenode_dir_path: temp_dir.to_path_buf(),
                 service_data_dir_path: node_data_dir.to_path_buf(),
                 service_log_dir_path: node_logs_dir.to_path_buf(),
@@ -611,44 +592,41 @@ mod tests {
         )
         .await?;
 
-        assert_eq!(node_registry.installed_nodes.len(), 1);
-        assert_eq!(node_registry.installed_nodes[0].version, specific_version);
-        assert_eq!(node_registry.installed_nodes[0].service_name, "safenode1");
-        assert_eq!(node_registry.installed_nodes[0].user, "safe");
-        assert_eq!(node_registry.installed_nodes[0].number, 1);
-        assert_eq!(node_registry.installed_nodes[0].port, 8080);
-        assert_eq!(node_registry.installed_nodes[0].rpc_port, 8081);
+        assert_eq!(node_registry.nodes.len(), 1);
+        assert_eq!(node_registry.nodes[0].version, specific_version);
+        assert_eq!(node_registry.nodes[0].service_name, "safenode1");
+        assert_eq!(node_registry.nodes[0].user, "safe");
+        assert_eq!(node_registry.nodes[0].number, 1);
+        assert_eq!(node_registry.nodes[0].port, 8080);
+        assert_eq!(node_registry.nodes[0].rpc_port, 8081);
         assert_eq!(
-            node_registry.installed_nodes[0].log_dir_path,
+            node_registry.nodes[0].log_dir_path,
             node_logs_dir.to_path_buf().join("safenode1")
         );
         assert_eq!(
-            node_registry.installed_nodes[0].data_dir_path,
+            node_registry.nodes[0].data_dir_path,
             node_data_dir.to_path_buf().join("safenode1")
         );
-        assert_matches!(
-            node_registry.installed_nodes[0].status,
-            NodeStatus::Installed
-        );
+        assert_matches!(node_registry.nodes[0].status, NodeStatus::Added);
 
         Ok(())
     }
 
     #[tokio::test]
-    async fn install_new_node_should_add_another_service() -> Result<()> {
+    async fn add_new_node_should_add_another_service() -> Result<()> {
         let mut mock_service_control = MockServiceControl::new();
         let mut mock_release_repo = MockSafeReleaseRepository::new();
 
         let latest_version = "0.96.4";
         let mut node_registry = NodeRegistry {
-            installed_nodes: vec![InstalledNode {
+            nodes: vec![Node {
                 service_name: "safenode1".to_string(),
                 user: "safe".to_string(),
                 number: 1,
                 port: 8080,
                 rpc_port: 8081,
                 version: latest_version.to_string(),
-                status: NodeStatus::Installed,
+                status: NodeStatus::Added,
                 pid: None,
                 peer_id: None,
                 log_dir_path: PathBuf::from("/var/log/safenode/safenode1"),
@@ -729,8 +707,8 @@ mod tests {
             .returning(|_| Ok(()))
             .in_sequence(&mut seq);
 
-        install(
-            InstallOptions {
+        add(
+            AddServiceOptions {
                 safenode_dir_path: temp_dir.to_path_buf(),
                 service_data_dir_path: node_data_dir.to_path_buf(),
                 service_log_dir_path: node_logs_dir.to_path_buf(),
@@ -744,25 +722,22 @@ mod tests {
         )
         .await?;
 
-        assert_eq!(node_registry.installed_nodes.len(), 2);
-        assert_eq!(node_registry.installed_nodes[1].version, latest_version);
-        assert_eq!(node_registry.installed_nodes[1].service_name, "safenode2");
-        assert_eq!(node_registry.installed_nodes[1].user, "safe");
-        assert_eq!(node_registry.installed_nodes[1].number, 2);
-        assert_eq!(node_registry.installed_nodes[1].port, 8082);
-        assert_eq!(node_registry.installed_nodes[1].rpc_port, 8083);
+        assert_eq!(node_registry.nodes.len(), 2);
+        assert_eq!(node_registry.nodes[1].version, latest_version);
+        assert_eq!(node_registry.nodes[1].service_name, "safenode2");
+        assert_eq!(node_registry.nodes[1].user, "safe");
+        assert_eq!(node_registry.nodes[1].number, 2);
+        assert_eq!(node_registry.nodes[1].port, 8082);
+        assert_eq!(node_registry.nodes[1].rpc_port, 8083);
         assert_eq!(
-            node_registry.installed_nodes[1].log_dir_path,
+            node_registry.nodes[1].log_dir_path,
             node_logs_dir.to_path_buf().join("safenode2")
         );
         assert_eq!(
-            node_registry.installed_nodes[1].data_dir_path,
+            node_registry.nodes[1].data_dir_path,
             node_data_dir.to_path_buf().join("safenode2")
         );
-        assert_matches!(
-            node_registry.installed_nodes[0].status,
-            NodeStatus::Installed
-        );
+        assert_matches!(node_registry.nodes[0].status, NodeStatus::Added);
 
         Ok(())
     }
