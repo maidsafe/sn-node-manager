@@ -34,7 +34,7 @@ The command can run as many times as you like to repeatedly add more nodes.
 ### Start
 
 - Command: `start`
-- Description: Starts an installed `safenode` service.
+- Description: Starts a `safenode` service.
 - Options:
   - `--peer-id`: Peer ID of the service to start. Optional.
   - `--service-name`: Name of the service to start. Optional.
@@ -42,14 +42,14 @@ The command can run as many times as you like to repeatedly add more nodes.
 
 This command must run as the root user on Linux/macOS and the Administrator user on Windows.
 
-Running the command with no arguments will start every installed node that is not already running. The peer ID or service name can be used to start a specific service.
+Running the command with no arguments will start every node that is not already running. The peer ID or service name can be used to start a specific service.
 
 A peer ID will be assigned to a node after it is started for the first time.
 
 ### Status
 
 - Command: `status`
-- Description: Displays the status of installed services.
+- Description: Displays the status of `safenode` services.
 - Options:
   - `--details`: Displays more detailed information. Boolean flag.
 - Usage: `safenode-manager status [OPTIONS]`
@@ -57,10 +57,10 @@ A peer ID will be assigned to a node after it is started for the first time.
 ### Stop
 
 - Command: `stop`
-- Description: Stops an installed `safenode` service.
+- Description: Stops a `safenode` service.
 - Options:
-  - `--peer_id`: Peer ID of the service to stop. Optional.
-  - `--service_name`: Name of the service to stop. Optional.
+  - `--peer-id`: Peer ID of the service to stop. Optional.
+  - `--service-name`: Name of the service to stop. Optional.
 - Usage: `safenode-manager stop [OPTIONS]`
 
 This command must run as the root user on Linux/macOS and the Administrator user on Windows.
@@ -68,6 +68,20 @@ This command must run as the root user on Linux/macOS and the Administrator user
 Running the command with no arguments will stop every installed node that is not already stopped. The peer ID or service name can be used to start a specific service.
 
 If started again, the node's data and peer ID will be retained.
+
+### Remove
+
+- Command: `remove`
+- Description: Removes a `safenode` service.
+- Options:
+  - `--peer-id`: Peer ID of the service to remove. Optional.
+  - `--service-name`: Name of the service to remove. Optional.
+  - `--keep-directories`: Set this flag to keep the node's data and log directories. Optional.
+- Usage: `safenode-manager remove [OPTIONS]`
+
+This command must run as the root user on Linux/macOS and the Administrator user on Windows.
+
+Removes the node and its data/log directories. The node must be stopped before running this command.
 
 ## License
 
