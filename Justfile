@@ -51,7 +51,7 @@ build-release-artifacts arch:
   find target/$arch/release -maxdepth 1 -type f -exec cp '{}' artifacts \;
   rm -f artifacts/.cargo-lock
 
-package-release-assets:
+package-release-assets version="":
   #!/usr/bin/env bash
   set -e
 
@@ -64,7 +64,12 @@ package-release-assets:
     "aarch64-unknown-linux-musl"
   )
   bin="safenode-manager"
-  version=$(cat Cargo.toml | grep "^version" | awk -F '=' '{ print $2 }' | xargs)
+
+  if [[ -z "{{version}}" ]]; then
+    version=$(cat Cargo.toml | grep "^version" | awk -F '=' '{ print $2 }' | xargs)
+  else
+    version="{{version}}"
+  fi
 
   rm -rf deploy/$bin
   find artifacts/ -name "$bin" -exec chmod +x '{}' \;
