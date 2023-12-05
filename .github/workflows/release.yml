@@ -117,3 +117,6 @@ jobs:
           just package-release-assets
           just upload-release-assets
           just upload-release-assets-to-s3
+          # Now repackage and upload binaries versioned 'latest'
+          just package-release-assets "latest"
+          just upload-release-assets-to-s3
