@@ -65,7 +65,7 @@ A peer ID will be assigned to a node after it is started for the first time.
 
 This command must run as the root user on Linux/macOS and the Administrator user on Windows.
 
-Running the command with no arguments will stop every installed node that is not already stopped. The peer ID or service name can be used to start a specific service.
+Running the command with no arguments will stop every node that is not already stopped. The peer ID or service name can be used to start a specific service.
 
 If started again, the node's data and peer ID will be retained.
 
@@ -82,6 +82,19 @@ If started again, the node's data and peer ID will be retained.
 This command must run as the root user on Linux/macOS and the Administrator user on Windows.
 
 Removes the node and its data/log directories. The node must be stopped before running this command.
+
+### Upgrade
+
+- Command: `upgrade`
+- Description: Upgrades a `safenode` service to the latest version.
+- Options:
+  - `--peer_id`: Peer ID of the service to stop. Optional.
+  - `--service_name`: Name of the service to stop. Optional.
+- Usage: `safenode-manager upgrade [OPTIONS]`
+
+This command must run as the root user on Linux/macOS and the Administrator user on Windows.
+
+Running the command with no arguments will upgrade every node. The peer ID or service name can be used to upgrade a specific service.
 
 ## License
 
