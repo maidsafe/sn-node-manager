@@ -1,5 +1,7 @@
 # Safenode Manager
 
+This crate has been moved to the [safe_network](https://github.com/maidsafe/safe_network) workspace repository and that's where it will be maintained. This repository is now archived.
+
 Safenode Manager is a command-line application for installing, managing, and operating `safenode` as a service. This tool facilitates easy setup and control of `safenode` services. It runs on Linux, macOS and Windows.
 
 ## Installation
